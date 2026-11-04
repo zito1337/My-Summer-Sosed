@@ -798,6 +798,7 @@ public class node_AIMovement : MonoBehaviour
 		adjustRotation = false;
 		canSeePlayer = playerInSight;
 		agent.speed = speedSettings.chaseSpeed;
+		if (!chase) SosedVoice.For(gameObject).OnChaseStarted();
 		chase = true;
 		StartCoroutine("updatePlayerPos");
 	}
