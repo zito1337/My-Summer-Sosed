@@ -5,10 +5,26 @@ using UnityEngine;
 [InitializeOnLoad]
 public static class SosedSetup
 {
-    static SosedSetup() { EditorApplication.delayCall += Configure; }
+    static SosedSetup()
+    {
+        EditorApplication.delayCall += Configure;
+        EditorApplication.playModeStateChanged += state =>
+        {
+            if (state == PlayModeStateChange.EnteredEditMode) EditorApplication.delayCall += Configure;
+        };
+    }
     static void Configure()
     {
         PlayerSettings.productName = "My Summer Sosed";
+        if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+        var neighbor = Object.FindObjectOfType<node_AIMovement>();
+        if (neighbor == null || neighbor.GetComponent<SosedVoice>() != null) return;
+        var scene = neighbor.gameObject.scene;
+        bool wasDirty = scene.isDirty;
+        Undo.AddComponent<SosedVoice>(neighbor.gameObject);
+        EditorSceneManager.MarkSceneDirty(scene);
+        if (!wasDirty && !string.IsNullOrEmpty(scene.path)) EditorSceneManager.SaveScene(scene);
+        Debug.Log("[My Summer Sosed] Voice settings attached to " + neighbor.name, neighbor);
     }
 
     [MenuItem("My Summer Sosed/Open game world")]

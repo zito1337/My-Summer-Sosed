@@ -53434,6 +53434,12 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 253252920}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1549405522 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2880789558761608864, guid: b20bbb16789599346b564c1f90ac27ce,
+    type: 3}
+  m_PrefabInstance: {fileID: 1612954409626660981}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1552594560
 GameObject:
   m_ObjectHideFlags: 0
@@ -66823,12 +66829,27 @@ MonoBehaviour:
     type: 3}
   m_PrefabInstance: {fileID: 1612954409626660981}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1549405522}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 228ce0ae8317ea445ba7ee84d61def98, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &6020425739230860383
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1549405522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d75cf99860b44c4393e893c04c8f749, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  english: 0
+  cooldown: 15
+  serverUrl: http://127.0.0.1:8081
 --- !u!4 &6044580916300932738
 Transform:
   m_ObjectHideFlags: 0
