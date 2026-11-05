@@ -66850,6 +66850,41 @@ MonoBehaviour:
   english: 0
   cooldown: 15
   serverUrl: http://127.0.0.1:8081
+  subtitles: 1
+--- !u!114 &6020425739230860390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1549405522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a45a4b22c08a5e542b1a2d1638b82651, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enabledInGame: 1
+  endpoint: http://127.0.0.1:8080
+  model: Qwen3.5-4B
+  contextWindow: 4096
+  thinking: 0
+  reasoningBudget: 256
+  maxReplyTokens: 80
+  temperature: 0.95
+  topP: 0.9
+  topK: 40
+  repeatPenalty: 1.1
+  rememberedLines: 6
+  requestTimeout: 60
+  allowSwearing: 1
+  personality: An elderly, cantankerous village neighbor. Protective of his house,
+    tools and fuel can. Irritable, suspicious, dry humor. Speak naturally, never
+    like an assistant.
+  prepareAhead: 1
+  preparedLines: 2
+  status: Waiting
+  lastLine: 
+  lastGenerationSeconds: 0
 --- !u!4 &6044580916300932738
 Transform:
   m_ObjectHideFlags: 0

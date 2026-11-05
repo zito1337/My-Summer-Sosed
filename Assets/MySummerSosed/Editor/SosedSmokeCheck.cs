@@ -15,6 +15,7 @@ public static class SosedSmokeCheck
         if (!SessionState.GetBool("SosedSmokePending", false))
         {
             if (!File.Exists("sosed-smoke.request")) return;
+            if (File.Exists("sosed-smoke.running")) File.Delete("sosed-smoke.running");
             File.Move("sosed-smoke.request", "sosed-smoke.running");
             var scene = EditorSceneManager.GetActiveScene();
             if (scene.isDirty) { File.WriteAllText("sosed-smoke.result", "SKIPPED: current scene has unsaved edits"); return; }
@@ -34,7 +35,11 @@ public static class SosedSmokeCheck
             if (!Resources.Load<AudioClip>("SosedVoice/chase-ru") || !Resources.Load<AudioClip>("SosedVoice/chase-en"))
                 throw new System.Exception("RU/EN chase clip missing");
             neighbor.chase = false;
+            var qwen = neighbor.GetComponent<SosedQwen>();
+            bool wasEnabled = qwen && qwen.enabledInGame;
+            if (qwen) qwen.enabledInGame = false;
             neighbor.pursuePlayer(true);
+            if (qwen) qwen.enabledInGame = wasEnabled;
             bool heard = false;
             foreach (var source in neighbor.GetComponents<AudioSource>())
                 if (source.isPlaying && source.clip && source.clip.name == "chase-ru") heard = true;

@@ -18,10 +18,13 @@ public static class SosedSetup
         PlayerSettings.productName = "My Summer Sosed";
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
         var neighbor = Object.FindObjectOfType<node_AIMovement>();
-        if (neighbor == null || neighbor.GetComponent<SosedVoice>() != null) return;
+        if (neighbor == null) return;
         var scene = neighbor.gameObject.scene;
         bool wasDirty = scene.isDirty;
-        Undo.AddComponent<SosedVoice>(neighbor.gameObject);
+        bool changed = false;
+        if (!neighbor.GetComponent<SosedVoice>()) { Undo.AddComponent<SosedVoice>(neighbor.gameObject); changed=true; }
+        if (!neighbor.GetComponent<SosedQwen>()) { Undo.AddComponent<SosedQwen>(neighbor.gameObject); changed=true; }
+        if (!changed) return;
         EditorSceneManager.MarkSceneDirty(scene);
         if (!wasDirty && !string.IsNullOrEmpty(scene.path)) EditorSceneManager.SaveScene(scene);
         Debug.Log("[My Summer Sosed] Voice settings attached to " + neighbor.name, neighbor);
