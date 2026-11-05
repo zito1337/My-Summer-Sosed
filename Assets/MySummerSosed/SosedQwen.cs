@@ -16,7 +16,7 @@ public sealed class SosedQwen : MonoBehaviour
     public string model = "Qwen3.5-4B";
     public bool autoStartServers = true;
     [Tooltip("Actual llama.cpp context. Apply with the Start / restart services button.")]
-    [Range(1024, 32768)] public int contextWindow = 4096;
+    [Range(12288, 32768)] public int contextWindow = 12288;
     public enum ThinkingLevel { None, Low, Mid, High, Max }
     public ThinkingLevel thinkingLevel = ThinkingLevel.None;
     [FormerlySerializedAs("thinking"), SerializeField, HideInInspector] bool legacyThinking;
@@ -35,7 +35,7 @@ public sealed class SosedQwen : MonoBehaviour
             }
         }
     }
-    [Range(24, 256)] public int maxReplyTokens = 80;
+    [Range(128, 1024)] public int maxReplyTokens = 256;
     [Range(0.1f, 1.5f)] public float temperature = 0.95f;
     [Range(0.1f, 1f)] public float topP = 0.9f;
     [Range(1, 100)] public int topK = 40;
@@ -65,7 +65,7 @@ public sealed class SosedQwen : MonoBehaviour
         public Template chat_template_kwargs;
     }
     [Serializable] class ReplyMessage { public string content; }
-    [Serializable] class Choice { public ReplyMessage message; }
+    [Serializable] class Choice { public ReplyMessage message; public string finish_reason; }
     [Serializable] class Reply { public Choice[] choices; }
 
     void MigrateThinking()
@@ -74,8 +74,9 @@ public sealed class SosedQwen : MonoBehaviour
         if(legacyThinking && thinkingLevel==ThinkingLevel.None) thinkingLevel=ThinkingLevel.Mid;
         thinkingSettingsVersion=1;
     }
-    void OnValidate() { MigrateThinking(); }
-    void Awake() { MigrateThinking(); voice=GetComponent<SosedVoice>(); previousEnglish=voice.english; }
+    void ValidateSettings() { MigrateThinking(); contextWindow=Mathf.Max(12288,contextWindow); maxReplyTokens=Mathf.Max(128,maxReplyTokens); }
+    void OnValidate() { ValidateSettings(); }
+    void Awake() { ValidateSettings(); voice=GetComponent<SosedVoice>(); previousEnglish=voice.english; }
     IEnumerator Start()
     {
         if(!enabledInGame || !autoStartServers) {servicesReady=true;startupFinished=true;yield break;}
@@ -118,7 +119,7 @@ public sealed class SosedQwen : MonoBehaviour
         status="Qwen generating text";
         string system=personality + (english ? " Speak only native English." : " Говори только по-русски.") +
             (allowSwearing ? " Coarse profanity is allowed when angry, vary its use." : " Do not swear.") +
-            " Return ONLY one brief angry shout of 4 to 8 words. No narration, stage directions, quotes, markdown or explanations. Each line must differ from previous lines.";
+            " Return ONLY one complete, natural angry spoken sentence, usually 6 to 16 words. Finish the thought and end with punctuation. Never stop at a conjunction or cut a sentence short to fit a word count. No narration, stage directions, quotes, markdown or explanations. Each line must differ from previous lines.";
         var messages=new List<Message> {new Message("system",system)};
         int memory=Mathf.Min(rememberedLines,history.Count);
         for(int i=history.Count-memory;i<history.Count;i++) messages.Add(new Message("assistant",history[i]));
@@ -132,14 +133,17 @@ public sealed class SosedQwen : MonoBehaviour
             top_k=topK,repeat_penalty=repeatPenalty,reasoning_budget_tokens=budget,
             chat_template_kwargs=new Template {enable_thinking=budget>0}};
         string line=null;
-        for(int attempt=0;attempt<(budget>0?2:1);attempt++)
+        for(int attempt=0;attempt<2;attempt++)
         {
           if(attempt==1)
           {
-            status="Thinking produced no final line; retrying without thinking";
+            status="Retrying incomplete response";
+            var repaired=new List<Message>(messages);
+            repaired.Add(new Message("user","Give a COMPLETE spoken sentence ending in punctuation. Do not end on 'or', 'and', 'или' or 'если'. No analysis."));
+            payload.messages=repaired.ToArray();
             payload.reasoning_budget_tokens=0;
             payload.chat_template_kwargs.enable_thinking=false;
-            payload.max_tokens=Mathf.Max(24,maxReplyTokens)+128;
+            payload.max_tokens=Mathf.Max(256,maxReplyTokens)+128;
           }
           using(var request=new UnityWebRequest(endpoint.TrimEnd('/')+"/v1/chat/completions","POST"))
           {
@@ -152,16 +156,17 @@ public sealed class SosedQwen : MonoBehaviour
                 Reply reply=null;
                 try {reply=JsonUtility.FromJson<Reply>(request.downloadHandler.text);} catch(Exception e) {status=e.Message;}
                 if(reply!=null && reply.choices!=null && reply.choices.Length>0 && reply.choices[0].message!=null)
-                    line=reply.choices[0].message.content;
+                    line=reply.choices[0].finish_reason=="length"?null:reply.choices[0].message.content;
             }
             else { status="Qwen unavailable: "+request.error; break; }
           }
           if(version!=revision || !enabledInGame) {generating=false; yield break;}
           line=ExtractSpokenLine(line);
-          if(!string.IsNullOrWhiteSpace(line)) break;
+          if(IsCompleteSpokenLine(line)) break;
+          line=null;
         }
         if(version!=revision || !enabledInGame) {generating=false; yield break;}
-        if(string.IsNullOrWhiteSpace(line)) {Fail("No spoken reply. Check server or increase token budget.");yield break;}
+        if(string.IsNullOrWhiteSpace(line)) {Fail("No complete spoken reply after retry.");yield break;}
         if(string.IsNullOrWhiteSpace(line) || line.Contains("<think>") || line.Length>400 || history.Contains(line))
         { Fail("Rejected empty, repeated or overly long line; retrying.");yield break; }
         lastLine=line; lastGenerationSeconds=Time.realtimeSinceStartup-started;
@@ -185,6 +190,13 @@ public sealed class SosedQwen : MonoBehaviour
         if(end>=0) content=content.Substring(end+8);
         if(content.Contains("<think>")) return null;
         return string.IsNullOrWhiteSpace(content)?null:content.Trim();
+    }
+    public static bool IsCompleteSpokenLine(string line)
+    {
+        if(string.IsNullOrWhiteSpace(line)) return false;
+        line=line.Trim().TrimEnd('"','»','\'');
+        if(!System.Text.RegularExpressions.Regex.IsMatch(line,@"[.!?…]$")) return false;
+        return !System.Text.RegularExpressions.Regex.IsMatch(line,@"\b(or|and|if|или|если|чтобы|потому что|и|а)[\s.!?…]*$",System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
     void Fail(string message)
     {

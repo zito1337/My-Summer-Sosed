@@ -7,7 +7,7 @@ STATE=ROOT/'UserSettings/SosedServices'
 STATE.mkdir(parents=True,exist_ok=True)
 home=Path.home()
 p=argparse.ArgumentParser()
-p.add_argument('--context',type=int,default=4096)
+p.add_argument('--context',type=int,default=12288)
 p.add_argument('--tts-only',action='store_true')
 p.add_argument('--restart-tts',action='store_true')
 p.add_argument('--ensure-running',action='store_true',help='Start only missing services; never restart existing ones')

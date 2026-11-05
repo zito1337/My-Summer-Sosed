@@ -27,7 +27,8 @@ weights and the installed TTS runtime must already exist on that machine.
 chase. No lines are generated at game startup or while idle. The response is
 spoken through Qwen3-TTS using the approved Russian/English grandpa reference.
 If the chase ends before synthesis finishes, the late audio is discarded.
-Use short shouts (4–8 words) to reduce synthesis latency. A second chase requests
+Use complete short sentences (usually 6–16 words). Truncated responses and
+unfinished conjunctions are rejected and retried once. A second chase requests
 a different line; recent lines are supplied as context to discourage repetition.
 
 The component exposes thinking mode/budget, context size, sampling parameters,
@@ -42,6 +43,10 @@ All five modes returned nonempty final speech in the live API check.
 High/Max increase latency; use None/Low for prompt chase reactions.
 The inspector's Start / restart services button applies the actual llama.cpp
 context size. Thinking is disabled by default because it adds latency.
+The default/minimum gameplay context is 12,288 tokens, separate from the reply
+token limit. Existing reply limits below 128 are raised to reserve a complete
+spoken sentence. TTS POST/audio downloads retry transient failures; a request ID
+deduplicates synthesis when a response is lost after generation.
 `enabledInGame = false` restores the offline cached chase cue.
 
 GPU TTS setup uses `Services/install_gpu_tts.py`. It installs official AMD ROCm

@@ -62,7 +62,7 @@ public sealed class SosedVoice : MonoBehaviour
         Debug.Log("[My Summer Sosed] Chase voice: " + (english ? "EN" : "RU"), this);
     }
 
-    [Serializable] private class SpeechRequest { public string text; }
+    [Serializable] private class SpeechRequest { public string text; public string request_id; }
     [Serializable] private class SpeechReply { public string url; }
 
     public void Speak(string text)
@@ -81,18 +81,31 @@ public sealed class SosedVoice : MonoBehaviour
 
     public IEnumerator FetchSpeech(string text, Action<AudioClip> completed)
     {
-        using (var request = new UnityWebRequest(serverUrl + "/speak", "POST"))
+        string requestId=Guid.NewGuid().ToString("N");
+        SpeechReply reply=null;
+        for(int attempt=0;attempt<3;attempt++)
         {
-            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SpeechRequest { text = text })));
+          using (var request = new UnityWebRequest(serverUrl + "/speak", "POST"))
+          {
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SpeechRequest { text = text, request_id=requestId })));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
             request.timeout = 180;
             yield return request.SendWebRequest();
-            if (request.result != UnityWebRequest.Result.Success)
-            { Debug.LogWarning("Sosed TTS: " + request.error, this); completed(null); yield break; }
-            var reply = JsonUtility.FromJson<SpeechReply>(request.downloadHandler.text);
-            if (reply == null || string.IsNullOrEmpty(reply.url) || !reply.url.StartsWith("/audio/"))
-            { completed(null); yield break; }
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                try {reply=JsonUtility.FromJson<SpeechReply>(request.downloadHandler.text);} catch(Exception) {reply=null;}
+                if(reply!=null && !string.IsNullOrEmpty(reply.url) && reply.url.StartsWith("/audio/")) break;
+            }
+            Debug.LogWarning("Sosed TTS attempt "+(attempt+1)+": "+request.error, this);
+            if(request.responseCode>=400 && request.responseCode<500) break;
+          }
+          yield return new WaitForSecondsRealtime(1f+attempt);
+        }
+        if(reply==null || string.IsNullOrEmpty(reply.url) || !reply.url.StartsWith("/audio/"))
+        {completed(null);yield break;}
+        for(int attempt=0;attempt<3;attempt++)
+        {
             using (var audio = UnityWebRequestMultimedia.GetAudioClip(serverUrl + reply.url, AudioType.WAV))
             {
                 audio.timeout = 30;
@@ -100,10 +113,13 @@ public sealed class SosedVoice : MonoBehaviour
                 if (audio.result == UnityWebRequest.Result.Success)
                 {
                     completed(DownloadHandlerAudioClip.GetContent(audio));
+                    yield break;
                 }
-                else { Debug.LogWarning("Sosed audio: " + audio.error, this); completed(null); }
+                else Debug.LogWarning("Sosed audio attempt "+(attempt+1)+": " + audio.error, this);
             }
+            yield return new WaitForSecondsRealtime(1f+attempt);
         }
+        completed(null);
     }
 
     public void PlayGenerated(AudioClip clip, string text)

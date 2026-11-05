@@ -12,6 +12,7 @@ ROOT = Path(os.environ.get('SOSED_TTS_HOME', str(Path(__file__).resolve().parent
 LOCK = threading.Lock()
 MODEL = None
 PROMPT = {}
+REQUEST_CACHE = {}
 WARM_READY = False
 
 def load_model():
@@ -67,9 +68,11 @@ def warm():
         print('TTS model warm (no speech generated)',flush=True)
     except Exception as error: print('TTS warmup failed:',error,flush=True)
 
-def speak(text):
+def speak(text, request_id=None):
     global MODEL, PROMPT
     with LOCK:
+        if request_id and request_id in REQUEST_CACHE:
+            return REQUEST_CACHE[request_id]
         started=time.perf_counter()
         import torch
         import soundfile as sf
@@ -89,7 +92,11 @@ def speak(text):
         (ROOT/'audio').mkdir(exist_ok=True)
         sf.write(str(ROOT/'audio'/name), waves[0], sr)
         print('TTS seconds:',round(time.perf_counter()-started,3),'audio seconds:',round(len(waves[0])/sr,3),flush=True)
-        return '/audio/'+name
+        url='/audio/'+name
+        if request_id:
+            REQUEST_CACHE[request_id]=url
+            while len(REQUEST_CACHE)>64:REQUEST_CACHE.pop(next(iter(REQUEST_CACHE)))
+        return url
 
 class Handler(BaseHTTPRequestHandler):
     def reply(self, data, content_type='application/json', status=200):
@@ -113,7 +120,7 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get('Content-Length','0'))
             if size > 200000: raise ValueError('Request too large')
             body = json.loads(self.rfile.read(size))
-            if self.path == '/speak': return self.reply({'url':speak(body['text'])})
+            if self.path == '/speak': return self.reply({'url':speak(body['text'],body.get('request_id'))})
             if self.path != '/chat': return self.reply({'error':'Not found'},status=404)
             system = 'Ты пожилой ворчливый сосед из деревни. Говоришь естественно, с сухим юмором. Помнишь о своей канистре и инструментах. Отвечай на языке собеседника, кратко: одно-два предложения. Не используй Markdown и сценические ремарки.'
             messages = [{'role':'system','content':system}] + body['messages'][-16:]
@@ -132,6 +139,8 @@ class Handler(BaseHTTPRequestHandler):
                     if token:
                         self.wfile.write((json.dumps({'text':token})+'\n').encode())
                         self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            print('Client disconnected; generated audio remains available for retry.',flush=True)
         except Exception as e:
             print('ERROR:', e, flush=True)
             try: self.reply({'error':str(e)},status=500)
