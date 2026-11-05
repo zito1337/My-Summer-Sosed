@@ -14,6 +14,7 @@ public sealed class SosedQwen : MonoBehaviour
     public bool enabledInGame = true;
     public string endpoint = "http://127.0.0.1:8080";
     public string model = "Qwen3.5-4B";
+    public bool autoStartServers = true;
     [Tooltip("Actual llama.cpp context. Apply with the Start / restart services button.")]
     [Range(1024, 32768)] public int contextWindow = 4096;
     public enum ThinkingLevel { None, Low, Mid, High, Max }
@@ -52,6 +53,7 @@ public sealed class SosedQwen : MonoBehaviour
     readonly List<string> history = new List<string>();
     SosedVoice voice;
     bool generating, waitingForChase, previousEnglish;
+    bool servicesReady, startupFinished;
     float nextAttempt;
     int revision;
     [Serializable] class Message { public string role; public string content; public Message(string r, string c) { role=r; content=c; } }
@@ -74,13 +76,23 @@ public sealed class SosedQwen : MonoBehaviour
     }
     void OnValidate() { MigrateThinking(); }
     void Awake() { MigrateThinking(); voice=GetComponent<SosedVoice>(); previousEnglish=voice.english; }
+    IEnumerator Start()
+    {
+        if(!enabledInGame || !autoStartServers) {servicesReady=true;startupFinished=true;yield break;}
+        status="Checking local Qwen / TTS services";
+        yield return SosedServiceStartup.EnsureServers(contextWindow, endpoint, voice.serverUrl,
+            message=>status=message, ready=>servicesReady=ready);
+        startupFinished=true;
+    }
     void Update()
     {
         if (voice.english != previousEnglish) { previousEnglish=voice.english; ClearPrepared(); }
         var movement=GetComponent<node_AIMovement>();
         if (waitingForChase && movement && !movement.chase)
         { waitingForChase=false; revision++; status="Chase ended; discarded pending speech"; voice.HideSubtitle(); }
-        if (enabledInGame && !generating && waitingForChase && Time.unscaledTime >= nextAttempt)
+        if(enabledInGame && waitingForChase && startupFinished && !servicesReady)
+        {Fail("Local services failed to start; see Console and UserSettings/SosedServices logs.");return;}
+        if (enabledInGame && servicesReady && !generating && waitingForChase && Time.unscaledTime >= nextAttempt)
             StartCoroutine(Generate());
     }
     public void Chase()

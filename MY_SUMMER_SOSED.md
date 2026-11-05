@@ -14,6 +14,15 @@ The menu `My Summer Sosed > Test chase voice (Play mode)` previews the cue.
 
 ## Live generation
 
+`Auto Start Servers` is enabled on Sosed Qwen by default. Entering Play / starting
+the gameplay scene checks both services, launches missing local services in the
+background, and waits for TTS warmup. Existing processes are left running. No
+speech is generated during startup. If a chase begins during warmup, its request
+waits for readiness and is discarded if the chase ends first. Processes remain
+available after leaving Play. Autostart supports the default local ports 8080/8081.
+Windows builds copy Python service scripts beside the executable; Python, model
+weights and the installed TTS runtime must already exist on that machine.
+
 `NeighborBody > Sosed Qwen` generates one new line ONLY when the AI enters a
 chase. No lines are generated at game startup or while idle. The response is
 spoken through Qwen3-TTS using the approved Russian/English grandpa reference.
