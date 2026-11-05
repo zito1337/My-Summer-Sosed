@@ -9,6 +9,7 @@ public class SosedQwenInspector : Editor
     public override void OnInspectorGUI()
     {
         DrawDefaultInspector();
+        EditorGUILayout.LabelField("Thinking token budget", ((SosedQwen)target).ReasoningTokenBudget.ToString());
         EditorGUILayout.HelpBox("Generation starts ONLY on chase entry. Context Window requires a server restart. Other settings apply to the next request. TTS speed depends on the installed CPU/GPU backend.", MessageType.Info);
         if (GUILayout.Button("Start / restart local Qwen + TTS (apply context)"))
         {

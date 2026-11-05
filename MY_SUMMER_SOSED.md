@@ -23,6 +23,14 @@ a different line; recent lines are supplied as context to discourage repetition.
 
 The component exposes thinking mode/budget, context size, sampling parameters,
 reply token limit, short memory, profanity and character instructions.
+Thinking Level presets are None (0 reasoning tokens), Low (128), Mid (384),
+High (768), and Max (1536). These are explicit local token budgets for Qwen,
+not a guarantee of model quality. Requests use llama.cpp's
+`reasoning_budget_tokens` field, reserve separate final-answer tokens, and retry
+once with thinking disabled if a thinking request returns no final speech.
+Only final content is voiced; reasoning content is never passed to TTS.
+All five modes returned nonempty final speech in the live API check.
+High/Max increase latency; use None/Low for prompt chase reactions.
 The inspector's Start / restart services button applies the actual llama.cpp
 context size. Thinking is disabled by default because it adds latency.
 `enabledInGame = false` restores the offline cached chase cue.
