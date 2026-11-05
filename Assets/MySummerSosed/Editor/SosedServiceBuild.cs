@@ -3,7 +3,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-// Ship only service source; installed models/venvs remain machine-specific.
+// Ship only service source; installed model weights remain machine-specific.
 public sealed class SosedServiceBuild : IPostprocessBuildWithReport
 {
     public int callbackOrder {get{return 0;}}

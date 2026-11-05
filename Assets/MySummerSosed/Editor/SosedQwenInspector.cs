@@ -10,12 +10,12 @@ public class SosedQwenInspector : Editor
     {
         DrawDefaultInspector();
         EditorGUILayout.LabelField("Thinking token budget", ((SosedQwen)target).ReasoningTokenBudget.ToString());
-        EditorGUILayout.HelpBox("Generation starts ONLY on chase entry. Context Window requires a server restart. Other settings apply to the next request. TTS speed depends on the installed CPU/GPU backend.", MessageType.Info);
-        if (GUILayout.Button("Start / restart local Qwen + TTS (apply context)"))
+        EditorGUILayout.HelpBox("Generation starts ONLY on chase entry. Context Window requires a server restart. Other settings apply to the next request.", MessageType.Info);
+        if (GUILayout.Button("Start / restart local Qwen (apply context)"))
         {
             var qwen=(SosedQwen)target;
             string script=Path.GetFullPath(Path.Combine(Application.dataPath,"../Services/start_services.py"));
-            var info=new ProcessStartInfo("python", "\""+script+"\" --restart-tts --context "+qwen.contextWindow)
+            var info=new ProcessStartInfo("python", "\""+script+"\" --context "+qwen.contextWindow)
             {UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
             var process=new Process {StartInfo=info,EnableRaisingEvents=true};
             process.OutputDataReceived+=(sender,args)=>{if(args.Data!=null) UnityEngine.Debug.Log("[Sosed services] "+args.Data);};

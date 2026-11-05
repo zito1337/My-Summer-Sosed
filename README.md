@@ -34,4 +34,4 @@ This repository contains a complete, from-scratch rewrite of the game Angry Neig
 
 * [filiposin](https://github.com/filiposin) — original Angry Neighbor Recode.
 * [zito1337](https://github.com/zito1337) — My Summer Sosed project and direction.
-* Codex (OpenAI) — AI coding assistant; Qwen integration, voice tooling, and Unity implementation assistance.
+* Codex (OpenAI) — AI coding assistant; Qwen integration and Unity implementation assistance.

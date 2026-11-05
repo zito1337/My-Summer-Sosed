@@ -7,7 +7,6 @@ using UnityEngine.Networking;
 using UnityEngine.Serialization;
 
 // Requests run through UnityWebRequest coroutines; no model inference on the game thread.
-[RequireComponent(typeof(SosedVoice))]
 public sealed class SosedQwen : MonoBehaviour
 {
     [Header("Qwen connection")]
@@ -15,6 +14,8 @@ public sealed class SosedQwen : MonoBehaviour
     public string endpoint = "http://127.0.0.1:8080";
     public string model = "Qwen3.5-4B";
     public bool autoStartServers = true;
+    public bool english;
+    public bool subtitles = true;
     [Tooltip("Actual llama.cpp context. Apply with the Start / restart services button.")]
     [Range(12288, 32768)] public int contextWindow = 12288;
     public enum ThinkingLevel { None, Low, Mid, High, Max }
@@ -51,7 +52,8 @@ public sealed class SosedQwen : MonoBehaviour
     public float lastGenerationSeconds;
 
     readonly List<string> history = new List<string>();
-    SosedVoice voice;
+    string subtitle;
+    float subtitleUntil;
     bool generating, waitingForChase, previousEnglish;
     bool servicesReady, startupFinished;
     float nextAttempt;
@@ -76,21 +78,26 @@ public sealed class SosedQwen : MonoBehaviour
     }
     void ValidateSettings() { MigrateThinking(); contextWindow=Mathf.Max(12288,contextWindow); maxReplyTokens=Mathf.Max(128,maxReplyTokens); }
     void OnValidate() { ValidateSettings(); }
-    void Awake() { ValidateSettings(); voice=GetComponent<SosedVoice>(); previousEnglish=voice.english; }
+    public static SosedQwen For(GameObject neighbor)
+    {
+        var qwen=neighbor.GetComponent<SosedQwen>();
+        return qwen ? qwen : neighbor.AddComponent<SosedQwen>();
+    }
+    void Awake() { ValidateSettings(); previousEnglish=english; }
     IEnumerator Start()
     {
         if(!enabledInGame || !autoStartServers) {servicesReady=true;startupFinished=true;yield break;}
-        status="Checking local Qwen / TTS services";
-        yield return SosedServiceStartup.EnsureServers(contextWindow, endpoint, voice.serverUrl,
+        status="Checking local Qwen server";
+        yield return SosedServiceStartup.EnsureServers(contextWindow, endpoint,
             message=>status=message, ready=>servicesReady=ready);
         startupFinished=true;
     }
     void Update()
     {
-        if (voice.english != previousEnglish) { previousEnglish=voice.english; ClearPrepared(); }
+        if (english != previousEnglish) { previousEnglish=english; ClearPrepared(); }
         var movement=GetComponent<node_AIMovement>();
         if (waitingForChase && movement && !movement.chase)
-        { waitingForChase=false; revision++; status="Chase ended; discarded pending speech"; voice.HideSubtitle(); }
+        { waitingForChase=false; revision++; status="Chase ended; discarded pending reply"; subtitle=null; }
         if(enabledInGame && waitingForChase && startupFinished && !servicesReady)
         {Fail("Local services failed to start; see Console and UserSettings/SosedServices logs.");return;}
         if (enabledInGame && servicesReady && !generating && waitingForChase && Time.unscaledTime >= nextAttempt)
@@ -98,7 +105,7 @@ public sealed class SosedQwen : MonoBehaviour
     }
     public void Chase()
     {
-        if (!enabledInGame) { voice.PlayFallback(); return; }
+        if (!enabledInGame) return;
         revision++;
         waitingForChase=true;
         nextAttempt=0;
@@ -114,7 +121,6 @@ public sealed class SosedQwen : MonoBehaviour
     {
         generating=true;
         int version=revision;
-        bool english=voice.english;
         float started=Time.realtimeSinceStartup;
         status="Qwen generating text";
         string system=personality + (english ? " Speak only native English." : " Говори только по-русски.") +
@@ -172,15 +178,10 @@ public sealed class SosedQwen : MonoBehaviour
         lastLine=line; lastGenerationSeconds=Time.realtimeSinceStartup-started;
         history.Add(line); while(history.Count>12) history.RemoveAt(0);
         Debug.Log("[Sosed Qwen] "+line,this);
-        status="TTS generating voice";
-        if(waitingForChase) voice.ShowSubtitle(line);
-        AudioClip clip=null;
-        yield return voice.FetchSpeech(line, result=>clip=result);
-        if(version!=revision || !enabledInGame) {if(clip) Destroy(clip); generating=false;yield break;}
-        if(!clip) {Fail("TTS failed; text is visible in Last Line / Console.");yield break;}
-        if(waitingForChase)
-        {waitingForChase=false;voice.PlayGenerated(clip,line);status="Speaking new Qwen line";}
-        else Destroy(clip);
+        subtitle=line;
+        subtitleUntil=Time.unscaledTime+Mathf.Clamp(line.Length/12f,5f,15f);
+        waitingForChase=false;
+        status="New Qwen reply displayed";
         generating=false;
     }
     public static string ExtractSpokenLine(string content)
@@ -201,8 +202,16 @@ public sealed class SosedQwen : MonoBehaviour
     void Fail(string message)
     {
         status=message; generating=false;nextAttempt=Time.unscaledTime+10;
-        if(waitingForChase) {waitingForChase=false;voice.PlayFallback();}
+        waitingForChase=false;
         Debug.LogWarning("[Sosed Qwen] "+message,this);
     }
     void OnDestroy() {ClearPrepared();}
+    void OnGUI()
+    {
+        if(!subtitles || string.IsNullOrEmpty(subtitle) || Time.unscaledTime>subtitleUntil) return;
+        var style=new GUIStyle(GUI.skin.box){fontSize=22,wordWrap=true,alignment=TextAnchor.MiddleCenter};
+        float width=Screen.width*0.7f;
+        float height=Mathf.Max(60f,style.CalcHeight(new GUIContent(subtitle),width)+16f);
+        GUI.Box(new Rect(Screen.width*0.15f,Screen.height-height-35f,width,height),subtitle,style);
+    }
 }
