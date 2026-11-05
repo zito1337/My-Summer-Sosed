@@ -43,9 +43,12 @@ public sealed class SosedQwen : MonoBehaviour
     [Range(1f, 1.5f)] public float repeatPenalty = 1.1f;
     [Range(0, 12)] public int rememberedLines = 6;
     [Range(5, 180)] public int requestTimeout = 60;
-    [Header("Character")]
+    [Header("System prompt")]
     public bool allowSwearing = true;
-    [TextArea(2, 5)] public string personality = "An elderly, cantankerous village neighbor. Protective of his house, tools and fuel can. Irritable, suspicious, dry humor. Speak naturally, never like an assistant.";
+    [FormerlySerializedAs("personality"), TextArea(6, 14)]
+    public string systemPrompt = "An elderly, cantankerous village neighbor. Protective of his house, tools and fuel can. Irritable, suspicious, dry humor. Speak naturally, never like an assistant.";
+    [Tooltip("Append language, profanity and chase-reply formatting instructions. Disable to send System Prompt exactly as written.")]
+    public bool appendGameplayRules = true;
     [Header("Live status (read only in practice)")]
     public string status = "Waiting";
     [TextArea] public string lastLine;
@@ -54,7 +57,8 @@ public sealed class SosedQwen : MonoBehaviour
     readonly List<string> history = new List<string>();
     string subtitle;
     float subtitleUntil;
-    bool generating, waitingForChase, previousEnglish;
+    bool generating, waitingForChase;
+    string previousPrompt;
     bool servicesReady, startupFinished;
     float nextAttempt;
     int revision;
@@ -83,7 +87,7 @@ public sealed class SosedQwen : MonoBehaviour
         var qwen=neighbor.GetComponent<SosedQwen>();
         return qwen ? qwen : neighbor.AddComponent<SosedQwen>();
     }
-    void Awake() { ValidateSettings(); previousEnglish=english; }
+    void Awake() { ValidateSettings(); previousPrompt=BuildSystemPrompt(); }
     IEnumerator Start()
     {
         if(!enabledInGame || !autoStartServers) {servicesReady=true;startupFinished=true;yield break;}
@@ -94,7 +98,12 @@ public sealed class SosedQwen : MonoBehaviour
     }
     void Update()
     {
-        if (english != previousEnglish) { previousEnglish=english; ClearPrepared(); }
+        string currentPrompt=BuildSystemPrompt();
+        if (currentPrompt != previousPrompt)
+        {
+            previousPrompt=currentPrompt;
+            history.Clear(); revision++; subtitle=null;
+        }
         var movement=GetComponent<node_AIMovement>();
         if (waitingForChase && movement && !movement.chase)
         { waitingForChase=false; revision++; status="Chase ended; discarded pending reply"; subtitle=null; }
@@ -123,9 +132,7 @@ public sealed class SosedQwen : MonoBehaviour
         int version=revision;
         float started=Time.realtimeSinceStartup;
         status="Qwen generating text";
-        string system=personality + (english ? " Speak only native English." : " Говори только по-русски.") +
-            (allowSwearing ? " Coarse profanity is allowed when angry, vary its use." : " Do not swear.") +
-            " Return ONLY one complete, natural angry spoken sentence, usually 6 to 16 words. Finish the thought and end with punctuation. Never stop at a conjunction or cut a sentence short to fit a word count. No narration, stage directions, quotes, markdown or explanations. Each line must differ from previous lines.";
+        string system=BuildSystemPrompt();
         var messages=new List<Message> {new Message("system",system)};
         int memory=Mathf.Min(rememberedLines,history.Count);
         for(int i=history.Count-memory;i<history.Count;i++) messages.Add(new Message("assistant",history[i]));
@@ -191,6 +198,14 @@ public sealed class SosedQwen : MonoBehaviour
         if(end>=0) content=content.Substring(end+8);
         if(content.Contains("<think>")) return null;
         return string.IsNullOrWhiteSpace(content)?null:content.Trim();
+    }
+    public string BuildSystemPrompt()
+    {
+        string prompt=systemPrompt??string.Empty;
+        if(!appendGameplayRules) return prompt;
+        return prompt + (english ? " Speak only native English." : " Говори только по-русски.") +
+            (allowSwearing ? " Coarse profanity is allowed when angry, vary its use." : " Do not swear.") +
+            " Return ONLY one complete, natural angry spoken sentence, usually 6 to 16 words. Finish the thought and end with punctuation. Never stop at a conjunction or cut a sentence short to fit a word count. No narration, stage directions, quotes, markdown or explanations. Each line must differ from previous lines.";
     }
     public static bool IsCompleteSpokenLine(string line)
     {

@@ -6,9 +6,13 @@ using UnityEngine;
 [CustomEditor(typeof(SosedQwen))]
 public class SosedQwenInspector : Editor
 {
+    bool showPrompt;
     public override void OnInspectorGUI()
     {
         DrawDefaultInspector();
+        showPrompt=EditorGUILayout.Foldout(showPrompt,"Effective system prompt",true);
+        if(showPrompt)
+            EditorGUILayout.SelectableLabel(((SosedQwen)target).BuildSystemPrompt(),EditorStyles.textArea,GUILayout.MinHeight(140));
         EditorGUILayout.LabelField("Thinking token budget", ((SosedQwen)target).ReasoningTokenBudget.ToString());
         EditorGUILayout.HelpBox("Generation starts ONLY on chase entry. Context Window requires a server restart. Other settings apply to the next request.", MessageType.Info);
         if (GUILayout.Button("Start / restart local Qwen (apply context)"))

@@ -14,6 +14,13 @@ Max (0 / 128 / 384 / 768 / 1536 reasoning tokens). Sampling, memory, reply
 length, profanity and character instructions are configurable. Incomplete
 replies are retried once without reasoning.
 
+System Prompt is editable on NeighborBody > Sosed Qwen, including during Play
+(applies to the next request). Disable Append Gameplay Rules to send exactly
+the text entered, without additional language/profanity/format instructions.
+Effective system prompt previews the actual system message. Editing the prompt
+clears old reply history and discards any pending response from the old prompt.
+The former Personality value is preserved automatically.
+
 ## Model server
 
 Auto Start Servers starts Qwen at http://127.0.0.1:8080 if missing. Existing
